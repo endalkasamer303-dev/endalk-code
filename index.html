@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integrated Crypto App with SSO</title>
+    
+    <!-- External Libraries -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsencrypt/3.3.2/jsencrypt.min.js"></script>
+    
+    <style>
+        /* ==========================================
+           GLOBAL STYLES
+           ========================================== */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #e1e1e1; 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            justify-content: center; 
+        }
+        
+        /* ==========================================
+           LOGIN SCREEN STYLES
+           ========================================== */
+        #login-screen { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+            text-align: center; 
+            margin-top: 100px; 
+            width: 400px; 
+        }
+        
+        /* ==========================================
+           APP DASHBOARD STYLES
+           ========================================== */
+        #app-dashboard { 
+            display: none; /* Hidden until Google Login is successful */
+            background: white; 
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+            width: 900px; 
+        }
+
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 2px solid #003366; 
+            padding-bottom: 10px; 
+            margin-bottom: 20px; 
+        }
+
+        .user-profile { 
+            display: flex; 
+            align-items: center; 
+            gap: 15px; 
+        }
+
+        .user-profile img { 
+            width: 40px; 
+            height: 40px; 
+            border-radius: 50%; 
+        }
+        
+        /* ==========================================
+           CRYPTOGRAPHY CONTROLS & LAYOUT
+           ========================================== */
+        .grid-container { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+        }
+
+        .panel { 
+            border: 1px solid #ccc; 
+            padding: 15px; 
+            border-radius: 5px; 
+            background: #f9f9f9; 
+        }
+
+        textarea { 
+            width: 100%; 
+            height: 80px; 
+            margin-bottom: 10px; 
+            resize: none; 
+            font-family: monospace; 
+            box-sizing: border-box;
+        }
+
+        input[type="text"] { 
+            width: 100%; 
+            padding: 5px; 
+            margin-bottom: 10px; 
+            box-sizing: border-box;
+        }
+
+        button { 
+            background: #003366; 
+            color: white; 
+            border: none; 
+            padding: 8px 15px; 
+            cursor: pointer; 
+            border-radius: 3px; 
+            font-weight: bold; 
+            margin-right: 5px; 
+        }
+
+        button:hover { 
+            background: #002244; 
+        }
+
+        .section-title { 
+            color: #003366; 
+            border-bottom: 1px solid #ccc; 
+            padding-bottom: 5px; 
+            margin-top: 0; 
+        }
+
+        .controls { 
+            margin-top: 20px; 
+            padding: 10px; 
+            background: #eee; 
+            border-radius: 5px; 
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ========================================== -->
+    <!-- 1. LOGIN SCREEN (FIM / Google SSO)         -->
+    <!-- ========================================== -->
+    <div id="login-screen">
+        <h2 style="color: #8b0000;">Cryptography Portal</h2>
+        <p>Assignment 4 Extension - FIM</p>
+        <p style="color: #555; font-size: 14px; margin-bottom: 30px;">Please authenticate to access assignments 2 & 3.</p>
+
+        <!-- Google Identity Services configuration -->
+        <div id="g_id_onload"
+             data-client_id="822719666451-pekdksoo4g66reqj2qold66nnbh66fhf.apps.googleusercontent.com" 
+             data-context="signin"
+             data-ux_mode="popup"
+             data-callback="handleLoginSuccess"
+             data-auto_prompt="false">
+        </div>
+
+        <!-- Rendered Google Login Button -->
+        <div class="g_id_signin" 
+             data-type="standard" 
+             data-size="large" 
+             data-theme="outline" 
+             data-text="sign_in_with" 
+             data-shape="rectangular" 
+             data-logo_alignment="left">
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 2. SECURE APP DASHBOARD (Hidden initially) -->
+    <!-- ========================================== -->
+    <div id="app-dashboard">
+        
+        <!-- Header with User Profile -->
+        <div class="header">
+            <h2 style="color: #003366; margin: 0;">Crypto Suite</h2>
+            <div class="user-profile">
+                <div style="text-align: right;">
+                    <strong id="userName">User Name</strong><br>
+                    <small id="userEmail" style="color: green;">Authenticated via Google</small>
+                </div>
+                <img id="userPic" src="" alt="Profile Picture">
+                <button onclick="logout()" style="background: #8b0000;">Logout</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- ASSIGNMENT 2: SYMMETRIC                    -->
+        <!-- ========================================== -->
+        <h3 class="section-title">Assignment 2: Symmetric Cryptography</h3>
+        
+        <div class="controls">
+            <label><strong>Algorithm: </strong></label>
+            <select id="symAlgo">
+                <option value="AES">AES</option>
+                <option value="3DES">3DES</option>
+                <option value="OTP">One-Time Pad (XOR)</option>
+            </select>
+        </div>
+        
+        <div class="grid-container">
+            <!-- Encrypt Panel -->
+            <div class="panel">
+                <h4>Encrypt</h4>
+                <textarea id="symInput" placeholder="Message to encrypt..."></textarea>
+                <input type="text" id="symKey" placeholder="Secret Key">
+                <button onclick="symEncrypt()">Encrypt</button>
+                <button onclick="copyToDecrypt('symOutput', 'symDecInput')">Copy to Decrypt</button>
+                <textarea id="symOutput" readonly placeholder="Ciphertext will appear here..."></textarea>
+            </div>
+            
+            <!-- Decrypt Panel -->
+            <div class="panel">
+                <h4>Decrypt</h4>
+                <textarea id="symDecInput" placeholder="Ciphertext to decrypt..."></textarea>
+                <input type="text" id="symDecKey" placeholder="Secret Key">
+                <button onclick="symDecrypt()">Decrypt</button>
+                <textarea id="symDecOutput" readonly placeholder="Plaintext will appear here..."></textarea>
+            </div>
+        </div>
+
+        <br><br>
+
+        <!-- ========================================== -->
+        <!-- ASSIGNMENT 3: ASYMMETRIC (RSA)             -->
+        <!-- ========================================== -->
+        <h3 class="section-title">Assignment 3: Asymmetric Cryptography (RSA)</h3>
+        
+        <div class="controls">
+            <button onclick="generateRSA()">Generate RSA Key Pair</button>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <textarea id="rsaPub" readonly placeholder="Public Key..."></textarea>
+                <textarea id="rsaPriv" readonly placeholder="Private Key..."></textarea>
+            </div>
+        </div>
+        
+        <div class="grid-container">
+            <!-- Encrypt Panel -->
+            <div class="panel">
+                <h4>Encrypt</h4>
+                <textarea id="rsaInput" placeholder="Message to encrypt..."></textarea>
+                <button onclick="rsaEncrypt()">Encrypt (Uses Public Key)</button>
+                <button onclick="copyToDecrypt('rsaOutput', 'rsaDecInput')">Copy</button>
+                <textarea id="rsaOutput" readonly placeholder="Ciphertext..."></textarea>
+            </div>
+            
+            <!-- Decrypt Panel -->
+            <div class="panel">
+                <h4>Decrypt</h4>
+                <textarea id="rsaDecInput" placeholder="Ciphertext to decrypt..."></textarea>
+                <button onclick="rsaDecrypt()">Decrypt (Uses Private Key)</button>
+                <textarea id="rsaDecOutput" readonly placeholder="Plaintext..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 3. JAVASCRIPT LOGIC                        -->
+    <!-- ========================================== -->
+    <script>
+        /* ---------------------------------------------------------
+           SSO LOGIN & USER MANAGEMENT
+           --------------------------------------------------------- */
+        
+        function handleLoginSuccess(response) {
+            // Decode Google JWT Token from base64url format
+            let base64Url = response.credential.split('.')[1];
+            let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            let jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            
+            let userData = JSON.parse(jsonPayload);
+
+            // Hide the Login Screen and Show the App Dashboard
+            document.getElementById("login-screen").style.display = "none";
+            document.getElementById("app-dashboard").style.display = "block";
+
+            // Populate User Profile data into the DOM
+            document.getElementById("userName").innerText = userData.name;
+            document.getElementById("userEmail").innerText = userData.email;
+            document.getElementById("userPic").src = userData.picture;
+        }
+
+        function logout() {
+            // Reloading the page clears memory and restores the login screen
+            location.reload(); 
+        }
+
+        // Utility function to copy ciphertext to the decryption input
+        function copyToDecrypt(fromId, toId) {
+            document.getElementById(toId).value = document.getElementById(fromId).value;
+        }
+
+
+        /* ---------------------------------------------------------
+           SYMMETRIC CRYPTOGRAPHY LOGIC (Assignment 2)
+           --------------------------------------------------------- */
+           
+        function symEncrypt() {
+            let msg = document.getElementById('symInput').value;
+            let key = document.getElementById('symKey').value;
+            let algo = document.getElementById('symAlgo').value;
+            let result = "";
+
+            if (!msg || !key) { 
+                alert("Please provide both a message and a secret key!"); 
+                return; 
+            }
+
+            if (algo === "AES") {
+                result = CryptoJS.AES.encrypt(msg, key).toString();
+            } else if (algo === "3DES") {
+                result = CryptoJS.TripleDES.encrypt(msg, key).toString();
+            } else if (algo === "OTP") {
+                // Simulate One-Time Pad using a basic XOR loop
+                let resChars = [];
+                for (let i = 0; i < msg.length; i++) {
+                    resChars.push(String.fromCharCode(msg.charCodeAt(i) ^ key.charCodeAt(i % key.length)));
+                }
+                result = btoa(resChars.join('')); // Encode result as Base64
+            }
+            
+            document.getElementById('symOutput').value = result;
+        }
+
+        function symDecrypt() {
+            let msg = document.getElementById('symDecInput').value;
+            let key = document.getElementById('symDecKey').value;
+            let algo = document.getElementById('symAlgo').value;
+            let result = "";
+
+            if (!msg || !key) { 
+                alert("Please provide both ciphertext and a secret key!"); 
+                return; 
+            }
+
+            try {
+                if (algo === "AES") {
+                    result = CryptoJS.AES.decrypt(msg, key).toString(CryptoJS.enc.Utf8);
+                } else if (algo === "3DES") {
+                    result = CryptoJS.TripleDES.decrypt(msg, key).toString(CryptoJS.enc.Utf8);
+                } else if (algo === "OTP") {
+                    // Decode Base64 and reverse XOR
+                    let decodedMsg = atob(msg);
+                    let resChars = [];
+                    for (let i = 0; i < decodedMsg.length; i++) {
+                        resChars.push(String.fromCharCode(decodedMsg.charCodeAt(i) ^ key.charCodeAt(i % key.length)));
+                    }
+                    result = resChars.join('');
+                }
+                document.getElementById('symDecOutput').value = result;
+                
+            } catch(e) { 
+                alert("Decryption failed! Incorrect key or corrupted ciphertext."); 
+            }
+        }
+
+
+        /* ---------------------------------------------------------
+           ASYMMETRIC CRYPTOGRAPHY LOGIC (Assignment 3)
+           --------------------------------------------------------- */
+           
+        // Initialize JSEncrypt library (1024-bit key size for browser performance)
+        let crypt = new JSEncrypt({ default_key_size: 1024 }); 
+
+        function generateRSA() {
+            crypt.getKey();
+            document.getElementById('rsaPub').value = crypt.getPublicKey();
+            document.getElementById('rsaPriv').value = crypt.getPrivateKey();
+        }
+
+        function rsaEncrypt() {
+            let msg = document.getElementById('rsaInput').value;
+            let pub = document.getElementById('rsaPub').value;
+            
+            if (!msg || !pub) { 
+                alert("Please generate keys and enter a message first!"); 
+                return; 
+            }
+            
+            crypt.setPublicKey(pub);
+            document.getElementById('rsaOutput').value = crypt.encrypt(msg);
+        }
+
+        function rsaDecrypt() {
+            let msg = document.getElementById('rsaDecInput').value;
+            let priv = document.getElementById('rsaPriv').value;
+            
+            if (!msg || !priv) { 
+                alert("Please generate keys and enter ciphertext first!"); 
+                return; 
+            }
+            
+            crypt.setPrivateKey(priv);
+            document.getElementById('rsaDecOutput').value = crypt.decrypt(msg);
+        }
+    </script>
+</body>
+</html>
